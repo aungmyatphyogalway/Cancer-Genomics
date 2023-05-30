@@ -1,0 +1,44 @@
+---
+title: "Genomics2 Practical4"
+author: "aungmyatphyo"
+date: "2023-03-09"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+library(survival)
+library(survminer)
+```
+
+```{r}
+setwd("~/Downloads")
+a<-read.table("survival_times",header = TRUE)
+aa<-data.frame(a)
+b<-subset(a,aa$status==0)
+c<-subset(a,aa$status==1)
+summary(b)
+summary(c)
+#compare
+1880-1790.3
+```
+
+```{r}
+setwd("~/Downloads")
+ciber<-read.delim("CIBERSORTx_Job1_Adjusted2.txt")
+#summary(ciber)
+exa<-ciber[4,]
+newciber<- ciber[,c(1,5)]
+colnames(newciber)[1]<-'ID'
+common<-merge(aa,newciber,by="ID")
+```
+
+```{r}
+design<-ifelse(common$T.cells.CD8>0.2,"CD8high","CD8low")
+common<-cbind(common,design)
+surv_object<-Surv(common$time,common$status)
+survfit_object<-survfit(surv_object~common$design)
+summary(survfit_object)
+ggsurvplot(survfit_object, data =common, risk.table = TRUE, pval = TRUE, conf.int = TRUE, legend.labs = c("CD8low", "CD8high"), xlab = "Time (days)", ylab = "Survival Probability", ggtheme = theme_bw())
+```

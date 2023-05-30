@@ -1,0 +1,109 @@
+---
+title: "Practical6"
+author: "aungmyatphyo(22221184)"
+date: "2023-03-15"
+output: html_document
+---
+Part1
+(1) Mutational signatures are patterns of DNA mutation due to different genetic instability processes (environmental factors such as smoking & carcinogenic viruses or specific biological processes). They can give the hints about the cause of mutation. They are identified by some bioinformatic tools (mutSignatures) in which mutation count matrix is prepared and non-negative matrix factorization (NMF) is carried out to detect the signatures.
+
+(2)
+```{r}
+library(kableExtra)
+#install.packages('devtools')
+library(devtools)
+#devtools::install_github("dami82/mutSignatures", force = TRUE, build_vignettes = FALSE)
+library(mutSignatures)
+library(BiocManager)
+#BiocManager::install("BSgenome.Hsapiens.UCSC.hg19")
+library(BSgenome.Hsapiens.UCSC.hg19)
+setwd("~/Downloads")
+#2a
+maf.dset <- read.delim("somatic(1).mafplus", header = TRUE, as.is = TRUE)
+#2b
+maf.dset <- filterSNV(dataSet = maf.dset,
+                      seq_colNames = c("Reference_Allele",
+                                       "Tumor_Seq_Allele1",
+                                       "Tumor_Seq_Allele2"))
+#2c
+hg19 <- BSgenome.Hsapiens.UCSC.hg19::BSgenome.Hsapiens.UCSC.hg19
+
+a<-rep('chr',50172)
+Chromosome<-paste(a,maf.dset$Chromosome,sep ="")
+maf.dset<- maf.dset[,-5]
+maf.dset<-cbind(maf.dset[,1:4],Chromosome,maf.dset)
+maf.dset<-maf.dset[,-c(6,7,8,9)]
+maf.dset <- attachContext(mutData = maf.dset,
+                          chr_colName =  "Chromosome",
+                          start_colName = "Start_position",
+                          end_colName = "End_position",
+                          nucl_contextN = 3,
+                          BSGenomeDb = hg19)
+#2d
+maf.dset <- removeMismatchMut(mutData = maf.dset,
+                              refMut_colName = "Reference_Allele",
+                              context_colName = "context",
+                              refMut_format = "N")
+#2e
+maf.dset <- attachMutType(mutData = maf.dset,
+                          ref_colName = "Reference_Allele",
+                          var_colName = "Tumor_Seq_Allele1",
+                          var2_colName = "Tumor_Seq_Allele2",
+                          context_colName = "context")
+#2f
+maf.dset$TCGAid <- substr(maf.dset$Tumor_Sample_Barcode, 1, 15)
+maf.counts <- countMutTypes(mutTable = maf.dset, sample_colName = "TCGAid",
+                            mutType_colName = "mutType")
+maf.counts
+```
+(3)In the method of NMF,researchers construct the matrix with the rows (96 possible 3 nucleotide context) and columns (SNVs in the set of sample). Then the matrix factorized into 2 matrices(one with mutational signatures and other describes the relationship of each signature to each sample).
+
+Total number of mutation types depend on the specific mutations observed in the samples.
+
+#part2
+```{r}
+mouCancer.assess <- prelimProcessAssess(input = maf.counts, approach = "counts")
+```
+
+```{r}
+maf.counts.params<-setMutClusterParams(num_processesToExtract = 3,
+                                       approach = 'counts',
+                                       num_totIterations = 50,
+                                       num_parallelCores = 1,
+                                       debug = FALSE,
+                                       algorithm = 'alexa'
+                                       )
+```
+
+```{r}
+maf.analysis<-decipherMutationalProcesses(input = maf.counts,
+                                          params = maf.counts.params)
+```
+The silhouette plot tell that the chosen number of parameters is appropriate.
+```{r}
+maf.signs<-maf.analysis$Results$signatures
+print(maf.signs)
+
+maf.expos<- maf.analysis$Results$exposures
+maf.expos
+
+```
+#part3
+```{r}
+#(1)
+msigPlot(x = maf.signs, signature = 1)
+msigPlot(x = maf.signs, signature = 2)
+msigPlot(x = maf.signs, signature = 3)
+
+#(2)
+msigPlot(maf.expos)+ggplot2::ggtitle('exposure')
+
+#COSMIC
+#(1)
+cosmix <- getCosmicSignatures()
+print(cosmix)
+# 30 signatures are loaded 
+hm<-matchSignatures(mutSign = maf.signs,reference = cosmix)
+print(hm$plot)
+```
+(3)Active signature 2 is similar with Cosmic 16 and Cosmic 5 while signature 1 is similar with Cosmic 5. For these Cosmic Signatures, we need to know about the Cosmic 16 and 5 and then we will receive the clues for the potential causes and associations of active signatures 1 & 2.

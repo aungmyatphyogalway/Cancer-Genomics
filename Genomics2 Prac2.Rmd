@@ -1,0 +1,50 @@
+---
+title: "Cancer Genomics Assignment 2"
+author: "aungmyatphyo"
+date: "2023-03-02"
+output: html_document
+---
+
+#```{r}
+install.packages('BiocManager')
+BiocManager::install('maftools')
+library(maftools)
+```
+
+#```{r}
+install.packages('R.utils')
+```
+
+```{r}
+setwd("~/Downloads")
+trial<-read.maf('somatic.mafplus')
+trial
+```
+
+```{r}
+plotmafSummary(maf = trial, rmOutlier = TRUE, addStat = 'median', dashboard = TRUE, titvRaw = FALSE)
+```
+
+```{r}
+lollipopPlot(maf=trial, gene='MUC4')
+```
+
+```{r}
+trial.titv<-titv(maf=trial,plot = FALSE,useSyn = TRUE)
+trial.titv
+plotTiTv(res = trial.titv)
+```
+
+```{r}
+somaticInteractions(maf = trial, top = 25, pvalue = c(0.05, 0.1))
+```
+
+```{r}
+tcgaCompare(maf=trial,cohortName ='Texas_cohort',logscale = TRUE,capture_size =50)
+```
+
+```{r}
+a<-read.delim('cancerGeneList.tsv')
+g<-trial@gene.summary
+intersect(g$Hugo_Symbol,a$Hugo.Symbol)
+```
